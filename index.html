@@ -126,6 +126,11 @@
     position: absolute; bottom: 34px; left: 0; right: 0;
     font-size: 12px; color: rgba(233,214,166,.7); letter-spacing: .06em;
   }
+  .cover .blessing {
+    margin: 4px 0 0; font-size: clamp(17px, 5vw, 22px); line-height: 1.5; font-weight: 700;
+    color: #f0dfae; letter-spacing: .01em;
+    text-shadow: 0 1px 0 rgba(255,255,255,.12), 0 2px 8px rgba(0,0,0,.5);
+  }
   .emboss { color: #e6c877; }
 
   /* ── 하단 컨트롤 ── */
@@ -233,6 +238,7 @@ const DATA = [
     verse:"“자기의 죄를 숨기는 자는 형통하지 못하나 죄를 자복하고 버리는 자는 불쌍히 여김을 받으리라.”",
     summary:"겸손과 절제, 정직한 삶의 중요성을 반복해 강조합니다. 사람을 두려워하기보다 하나님을 신뢰하는 삶이 참된 안전을 가져오며, 회개하는 사람에게 긍휼과 회복이 임합니다.",
     apply:"실수와 허물을 감추거나 변명하기보다 하나님 앞에 솔직히 인정하고 회개할 때, 긍휼과 회복의 은혜가 임함을 믿어야 합니다. 사람의 시선을 두려워하기보다 하나님의 뜻을 먼저 구하며, 어떤 상황에서도 정직하고 담대하게 살아가야 합니다. 또한 갈등 가운데 있는 사람에게도 먼저 다가가 친절과 선의를 베풀며, 겸손과 절제로 관계를 세워 가도록 힘써야 합니다." },
+  { type:"back" },
 ];
 
 const book = document.getElementById("book");
@@ -262,6 +268,20 @@ function coverHTML() {
   </div>`;
 }
 
+function backCoverHTML() {
+  return `
+  <div class="cover">
+    <div class="cover-inner">
+      <div class="cross">🕊️</div>
+      <p class="kicker">The End · Blessing</p>
+      <h2 class="title">한 주간<br>수고하셨습니다</h2>
+      <div class="rule"></div>
+      <p class="blessing">새로운 한 주도<br>승리하세요~!</p>
+      <div class="foot"><span class="emboss">넘기면 처음으로 돌아갑니다</span></div>
+    </div>
+  </div>`;
+}
+
 function cardHTML(it) {
   return `
   <div class="card" style="--theme:${it.theme};--accent:${it.accent};--soft:${it.soft}">
@@ -286,7 +306,7 @@ DATA.forEach((it, i) => {
   const page = document.createElement("div");
   page.className = "page";
   page.style.zIndex = String(DATA.length - i);
-  const inner = it.type === "cover" ? coverHTML() : cardHTML(it);
+  const inner = it.type === "cover" ? coverHTML() : (it.type === "back" ? backCoverHTML() : cardHTML(it));
   page.innerHTML = `<div class="face">${inner}</div><div class="shade"></div>`;
   book.appendChild(page);
   pages.push(page);
@@ -303,12 +323,12 @@ const prevBtn = document.getElementById("prev");
 const nextBtn = document.getElementById("next");
 document.getElementById("total").textContent = total;
 
-function labelFor(i){ const it = DATA[i]; return it.type === "cover" ? "표지" : `${it.d} (${it.wd})`; }
+function labelFor(i){ const it = DATA[i]; if (it.type === "cover") return "표지"; if (it.type === "back") return "뒤표지"; return `${it.d} (${it.wd})`; }
 function updateUI() {
   curEl.textContent = current + 1;
   labelEl.textContent = labelFor(current);
   prevBtn.disabled = current === 0;
-  nextBtn.disabled = current === total - 1;
+  nextBtn.disabled = false; // 마지막(뒤표지)에서는 처음으로 순환
 }
 function setAngle(page, deg) {
   page.style.transform = `rotateY(${deg}deg)`;
@@ -324,7 +344,7 @@ function resetPages() {
   });
 }
 function goNext() {
-  if (current >= total - 1) return;
+  if (current >= total - 1) { loopToFront(); return; }
   const p = pages[current]; p.classList.add("turning"); p.style.zIndex = total + 1;
   requestAnimationFrame(() => setAngle(p, -180)); playFlip(); petalBurst();
   p.addEventListener("transitionend", function te(){ p.removeEventListener("transitionend",te); p.style.zIndex=current; p.querySelector(".shade").style.opacity=0; current++; updateUI(); }, {once:true});
@@ -334,6 +354,32 @@ function goPrev() {
   const p = pages[current - 1]; p.classList.add("turning"); p.style.zIndex = total + 1;
   requestAnimationFrame(() => setAngle(p, 0)); playFlip(); petalBurst();
   p.addEventListener("transitionend", function te(){ p.removeEventListener("transitionend",te); p.style.zIndex=total-(current-1); p.querySelector(".shade").style.opacity=0; current--; updateUI(); }, {once:true});
+}
+
+/* 뒤표지에서 넘기면 모든 장을 되돌려 맨 앞 표지로 순환 */
+let looping = false;
+function loopToFront() {
+  if (looping || current !== total - 1) return;
+  looping = true;
+  playFlip(); petalBurst();
+  // 넘어가 있던 페이지들(표지~7/18)을 시차를 두고 차례로 제자리로 되돌림
+  for (let i = current - 1; i >= 0; i--) {
+    const p = pages[i];
+    const delay = (current - 1 - i) * 90;
+    setTimeout(() => {
+      p.classList.add("turning");
+      p.style.zIndex = total + 1 + (current - i);
+      requestAnimationFrame(() => setAngle(p, 0));
+    }, delay);
+  }
+  const last = pages[0];
+  const totalDelay = (current) * 90 + 640;
+  setTimeout(() => {
+    current = 0;
+    resetPages();
+    updateUI();
+    looping = false;
+  }, totalDelay);
 }
 
 const bookW = () => book.clientWidth;
@@ -352,6 +398,7 @@ book.addEventListener("pointermove", (e) => {
   if (drag.dir === 0 && Math.abs(dx) > 8) {
     if (dx < 0 && current < total - 1) { drag.dir = -1; drag.page = pages[current]; drag.page.style.zIndex = total + 1; }
     else if (dx > 0 && current > 0)     { drag.dir =  1; drag.page = pages[current - 1]; drag.page.style.zIndex = total + 1; }
+    else if (dx < 0 && current === total - 1) { drag.dir = 3; } // 뒤표지에서 앞으로 밀기 = 처음으로
     else drag.dir = 2;
   }
   if (!drag.page) return;
@@ -378,6 +425,10 @@ function endDrag(e) {
       } else { requestAnimationFrame(()=>setAngle(page,-180));
         page.addEventListener("transitionend", function te(){ page.removeEventListener("transitionend",te); page.style.zIndex=(current-1); page.querySelector(".shade").style.opacity=0; }, {once:true}); }
     }
+  } else if (drag.dir === 3) {
+    // 뒤표지에서 앞으로 충분히 밀면 처음으로 순환
+    const ratio = Math.abs(dx) / bookW();
+    if (ratio > 0.18) loopToFront();
   } else if (drag.dir === 0 && !drag.moved) {
     const rect = book.getBoundingClientRect();
     if ((e.clientX - rect.left) > rect.width / 2) goNext(); else goPrev();
